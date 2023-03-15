@@ -1,0 +1,28 @@
+{
+  "name": "taletwister",
+  "version": "1.0.0",
+  "description": "",
+  "main": "/src/taletwister.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "tsc": "tsc -w --skipLibCheck",
+    "dev": "nodemon /src/taletwister.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cdelalama/TaleTwister.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/cdelalama/TaleTwister/issues"
+  },
+  "homepage": "https://github.com/cdelalama/TaleTwister#readme",
+  "dependencies": {
+    "nodemon": "^2.0.21"
+  },
+  "devDependencies": {
+    "typescript": "^4.9.5"
+  }
+}

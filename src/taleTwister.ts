@@ -1,4 +1,4 @@
-import { Bot, InlineKeyboard } from "grammy";
+import { Bot, InlineKeyboard, Middleware, Context  } from "grammy";
 import * as dotenv from "dotenv";
 import axios from "axios";
 import cheerio from "cheerio";
@@ -10,12 +10,14 @@ const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN!);
 
 const userStates = new Map<number, any>();
 
-bot.command("start", (ctx) => ctx.reply("Welcome to my web content extraction bot!"));
-
+bot.command("start", (ctx) => {
+    console.log('Received update:', JSON.stringify(ctx.update, null, 2));
+    ctx.reply("Welcome to my web content extraction bot!");
+  });
 bot.on("message", async (ctx) => {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   const url = (ctx.message.text ?? "").match(urlRegex);
-
+  console.log('Received update:', JSON.stringify(ctx.update, null, 2));
   if (url && url[0]) {
     try {
     console.log('Fetching URL:', url[0]);
@@ -99,4 +101,13 @@ function generateHTML(titles: string[], paragraphs: string[], selectedImages: st
   
     return `<html>\n<head>\n<meta charset="utf-8">\n</head>\n<body>\n${titleHTML}\n${paragraphHTML}\n${imageHTML}\n</body>\n</html>`;
   }
+
+  const errorHandler: Middleware<Context> = async (ctx, next) => {
+    try {
+      await next();
+    } catch (err) {
+      console.error(`Error while handling update ${ctx.update.update_id}:`, err);
+    }
+  };
   
+  bot.use(errorHandler);

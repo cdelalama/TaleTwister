@@ -34,11 +34,15 @@ const html_entities_1 = require("html-entities");
 dotenv.config();
 const bot = new grammy_1.Bot(process.env.TELEGRAM_BOT_TOKEN);
 const userStates = new Map();
-bot.command("start", (ctx) => ctx.reply("Welcome to my web content extraction bot!"));
+bot.command("start", (ctx) => {
+    console.log('Received update:', JSON.stringify(ctx.update, null, 2));
+    ctx.reply("Welcome to my web content extraction bot!");
+});
 bot.on("message", async (ctx) => {
     var _a;
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const url = ((_a = ctx.message.text) !== null && _a !== void 0 ? _a : "").match(urlRegex);
+    console.log('Received update:', JSON.stringify(ctx.update, null, 2));
     if (url && url[0]) {
         try {
             console.log('Fetching URL:', url[0]);
@@ -109,3 +113,12 @@ function generateHTML(titles, paragraphs, selectedImages) {
     const imageHTML = selectedImages.map((src) => `<img src="${src}" alt="" />`).join("\n");
     return `<html>\n<head>\n<meta charset="utf-8">\n</head>\n<body>\n${titleHTML}\n${paragraphHTML}\n${imageHTML}\n</body>\n</html>`;
 }
+const errorHandler = async (ctx, next) => {
+    try {
+        await next();
+    }
+    catch (err) {
+        console.error(`Error while handling update ${ctx.update.update_id}:`, err);
+    }
+};
+bot.use(errorHandler);

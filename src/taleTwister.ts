@@ -1,12 +1,27 @@
-import { Bot, InlineKeyboard, Middleware, Context  } from "grammy";
+import { Bot, InlineKeyboard, Middleware, Context, InputFile   } from "grammy";
 import * as dotenv from "dotenv";
 import axios from "axios";
 import cheerio from "cheerio";
 import { decode } from 'html-entities';
+import { Readable } from "stream";
+import { URL } from 'url';
 
 dotenv.config();
 
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN!);
+console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN);
+bot.api.getMe().then((botInfo) => {
+    console.log("Bot info:", botInfo);
+  }).catch((error) => {
+    console.error("Failed to get bot info:", error);
+  });
+
+  bot.start({
+    allowed_updates: ["message", "callback_query"],
+    timeout: 30,
+  });
+  
+  
 
 const userStates = new Map<number, any>();
 
@@ -59,48 +74,65 @@ bot.on("message", async (ctx) => {
 });
 
 bot.on('callback_query', async (ctx) => {
-  const userId = ctx.from.id;
-  const userState = userStates.get(userId);
-  const imageData = ctx.callbackQuery.data;
-
-  if (!userState) {
-    return;
-  }
-
-  if (imageData === 'keep') {
-    userState.selectedImages.push(userState.images[userState.currentImage]);
-  }
-
-  if (userState.currentImage < userState.images.length - 1) {
-    userState.currentImage += 1;
-    sendImage(ctx, userState.currentImage);
-  } else {
-    const html = generateHTML(userState.titles, userState.paragraphs, userState.selectedImages);
-    ctx.reply(`Here's the generated HTML:\n\n${html}`);
-    userStates.delete(userId);
-  }
-});
-
-function sendImage(ctx: any, index: number) {
-  const userState = userStates.get(ctx.from.id);
-  const imageUrl = userState.images[index];
-
-  const inlineKeyboard = new InlineKeyboard()
-    .text('Keep', 'keep')
-    .text('Discard', 'discard');
-
-  ctx.replyWithPhoto(imageUrl, {
-    reply_markup: inlineKeyboard,
+    const userId = ctx.from.id;
+    const userState = userStates.get(userId);
+    const imageData = ctx.callbackQuery.data;
+  
+    if (!userState) {
+      return;
+    }
+  
+    if (imageData === 'keep') {
+      userState.selectedImages.push(userState.images[userState.currentImage]);
+    }
+  
+    if (userState.currentImage < userState.images.length - 1) {
+        userState.currentImage += 1;
+        sendImage(ctx, userState.currentImage);
+      } else {
+        const html = generateHTML(userState.titles, userState.paragraphs, userState.images, userState.selectedImages);
+        const htmlBuffer = Buffer.from(html, 'utf-8');
+        const inputFile = new InputFile(htmlBuffer, 'generated.html');
+        ctx.replyWithDocument(inputFile);
+        userStates.delete(userId);
+      }
+      
+      
   });
-}
+  
+  
 
-function generateHTML(titles: string[], paragraphs: string[], selectedImages: string[]): string {
+  function sendImage(ctx: any, index: number) {
+    const userState = userStates.get(ctx.from.id);
+    const imageUrl = userState.images[index];
+  
+    if (!isValidUrl(imageUrl)) {
+      ctx.reply("The image URL is invalid. Skipping this image.");
+      if (userState.currentImage < userState.images.length - 1) {
+        userState.currentImage += 1;
+        sendImage(ctx, userState.currentImage);
+      }
+      return;
+    }
+  
+    const inlineKeyboard = new InlineKeyboard()
+      .text('Keep', 'keep')
+      .text('Discard', 'discard');
+  
+    ctx.replyWithPhoto(imageUrl, {
+      reply_markup: inlineKeyboard,
+    });
+  }
+
+function generateHTML(titles: string[], paragraphs: string[], images: string[], selectedImages: string[]): string {
     const titleHTML = titles.map((title) => `<h2>${title}</h2>`).join("\n");
     const paragraphHTML = paragraphs.map((paragraph) => `<p>${paragraph}</p>`).join("\n");
-    const imageHTML = selectedImages.map((src) => `<img src="${src}" alt="" />`).join("\n");
+    const imageHTML = images.map((src) => selectedImages.includes(src) ? `<img src="${src}" alt="" />` : '').join("\n");
   
     return `<html>\n<head>\n<meta charset="utf-8">\n</head>\n<body>\n${titleHTML}\n${paragraphHTML}\n${imageHTML}\n</body>\n</html>`;
   }
+  
+  
 
   const errorHandler: Middleware<Context> = async (ctx, next) => {
     try {
@@ -111,3 +143,12 @@ function generateHTML(titles: string[], paragraphs: string[], selectedImages: st
   };
   
   bot.use(errorHandler);
+
+  function isValidUrl(url: string): boolean {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  }

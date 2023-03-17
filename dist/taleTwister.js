@@ -31,8 +31,19 @@ const dotenv = __importStar(require("dotenv"));
 const axios_1 = __importDefault(require("axios"));
 const cheerio_1 = __importDefault(require("cheerio"));
 const html_entities_1 = require("html-entities");
+const url_1 = require("url");
 dotenv.config();
 const bot = new grammy_1.Bot(process.env.TELEGRAM_BOT_TOKEN);
+console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN);
+bot.api.getMe().then((botInfo) => {
+    console.log("Bot info:", botInfo);
+}).catch((error) => {
+    console.error("Failed to get bot info:", error);
+});
+bot.start({
+    allowed_updates: ["message", "callback_query"],
+    timeout: 30,
+});
 const userStates = new Map();
 bot.command("start", (ctx) => {
     console.log('Received update:', JSON.stringify(ctx.update, null, 2));
@@ -92,14 +103,24 @@ bot.on('callback_query', async (ctx) => {
         sendImage(ctx, userState.currentImage);
     }
     else {
-        const html = generateHTML(userState.titles, userState.paragraphs, userState.selectedImages);
-        ctx.reply(`Here's the generated HTML:\n\n${html}`);
+        const html = generateHTML(userState.titles, userState.paragraphs, userState.images, userState.selectedImages);
+        const htmlBuffer = Buffer.from(html, 'utf-8');
+        const inputFile = new grammy_1.InputFile(htmlBuffer, 'generated.html');
+        ctx.replyWithDocument(inputFile);
         userStates.delete(userId);
     }
 });
 function sendImage(ctx, index) {
     const userState = userStates.get(ctx.from.id);
     const imageUrl = userState.images[index];
+    if (!isValidUrl(imageUrl)) {
+        ctx.reply("The image URL is invalid. Skipping this image.");
+        if (userState.currentImage < userState.images.length - 1) {
+            userState.currentImage += 1;
+            sendImage(ctx, userState.currentImage);
+        }
+        return;
+    }
     const inlineKeyboard = new grammy_1.InlineKeyboard()
         .text('Keep', 'keep')
         .text('Discard', 'discard');
@@ -107,10 +128,10 @@ function sendImage(ctx, index) {
         reply_markup: inlineKeyboard,
     });
 }
-function generateHTML(titles, paragraphs, selectedImages) {
+function generateHTML(titles, paragraphs, images, selectedImages) {
     const titleHTML = titles.map((title) => `<h2>${title}</h2>`).join("\n");
     const paragraphHTML = paragraphs.map((paragraph) => `<p>${paragraph}</p>`).join("\n");
-    const imageHTML = selectedImages.map((src) => `<img src="${src}" alt="" />`).join("\n");
+    const imageHTML = images.map((src) => selectedImages.includes(src) ? `<img src="${src}" alt="" />` : '').join("\n");
     return `<html>\n<head>\n<meta charset="utf-8">\n</head>\n<body>\n${titleHTML}\n${paragraphHTML}\n${imageHTML}\n</body>\n</html>`;
 }
 const errorHandler = async (ctx, next) => {
@@ -122,3 +143,12 @@ const errorHandler = async (ctx, next) => {
     }
 };
 bot.use(errorHandler);
+function isValidUrl(url) {
+    try {
+        new url_1.URL(url);
+        return true;
+    }
+    catch {
+        return false;
+    }
+}

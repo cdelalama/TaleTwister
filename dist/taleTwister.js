@@ -114,7 +114,7 @@ function sendImage(ctx, index) {
     const userState = userStates.get(ctx.from.id);
     const imageUrl = userState.images[index];
     if (!isValidUrl(imageUrl)) {
-        ctx.reply("The image URL is invalid. Skipping this image.");
+        ctx.reply("The image URL is invalid. Skipping this image...");
         if (userState.currentImage < userState.images.length - 1) {
             userState.currentImage += 1;
             sendImage(ctx, userState.currentImage);

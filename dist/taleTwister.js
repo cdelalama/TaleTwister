@@ -33,6 +33,7 @@ const cheerio_1 = __importDefault(require("cheerio"));
 const html_entities_1 = require("html-entities");
 const url_1 = require("url");
 dotenv.config();
+const contentStructure = [];
 const bot = new grammy_1.Bot(process.env.TELEGRAM_BOT_TOKEN);
 console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN);
 bot.api.getMe().then((botInfo) => {

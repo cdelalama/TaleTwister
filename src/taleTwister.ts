@@ -6,6 +6,8 @@ import { decode } from 'html-entities';
 import { URL } from 'url';
 
 dotenv.config();
+const contentStructure: any[] = [];
+
 
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN!);
 console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN);
@@ -35,7 +37,7 @@ bot.on("message", async (ctx) => {
   if (url && url[0]) {
     try {
     console.log('Fetching URL:', url[0]);
-      const response = await axios.get(url[0]);
+      const response = await axios.get(url[0]); 
       const $ = cheerio.load(response.data);
       const pageTitle = $("head > title").text().trim();
 

@@ -51,14 +51,18 @@ bot.on("message", async (ctx) => {
         paragraphs.push(decode($(el).text().trim()));
       });
 
-      // Replace the existing images extraction code with this
-      const images: Array<{ index: number; src: string }> = [];
 
-      $("body *").each((_i, el) => {
-        if ($(el).is("img")) {
-          images.push({ index: _i, src: $(el).attr("src")! });
-        }
-      });
+const baseUrl = response.request.res.responseUrl;
+const images: Array<{ index: number; src: string }> = [];
+
+$("body *").each((_i, el) => {
+  if ($(el).is("img")) {
+    const src = $(el).attr("src")!;
+    const absoluteUrl = new URL(src, baseUrl).toString();
+    images.push({ index: _i, src: absoluteUrl });
+  }
+});
+
 
       ctx.reply(`Page Title: ${pageTitle}\n\nTitles:\n${titles.join("\n")}\n\nParagraphs:\n${paragraphs.join("\n")}`);
 
@@ -107,40 +111,44 @@ bot.on('callback_query', async (ctx) => {
 
 
 
-  function sendImage(ctx: any, index: number) {
-    const userState = userStates.get(ctx.from.id);
-    const imageUrl = userState.images[index];
+function sendImage(ctx: any, index: number) {
+  const userState = userStates.get(ctx.from.id);
+  const imageUrl = userState.images[index].src;
 
-    if (!isValidUrl(imageUrl)) {
-      ctx.reply("The image URL is invalid. Skipping this image...");
-      if (userState.currentImage < userState.images.length - 1) {
-        userState.currentImage += 1;
-        sendImage(ctx, userState.currentImage);
-      }
-      return;
+  console.log("Image URL:", imageUrl); // Add this line to log the image URL
+
+  if (!isValidUrl(imageUrl)) {
+    console.log("Invalid image URL:", imageUrl); // Add this line to log the invalid image URL
+    ctx.reply("The image URL is invalid. Skipping this image...");
+    if (userState.currentImage < userState.images.length - 1) {
+      userState.currentImage += 1;
+      sendImage(ctx, userState.currentImage);
     }
-
-    const inlineKeyboard = new InlineKeyboard()
-      .text('Keep', 'keep')
-      .text('Discard', 'discard');
-
-    ctx.replyWithPhoto(imageUrl, {
-      reply_markup: inlineKeyboard,
-    });
+    return;
   }
 
-function generateHTML(titles: string[], paragraphs: string[], images: Array<{ index: number; src: string }>, selectedImages: string[]): string {
-  const titleHTML = titles.map((title) => `<h2>${title}</h2>`).join("\n");
-  const paragraphHTML = paragraphs.map((paragraph) => `<p>${paragraph}</p>`).join("\n");
+  const inlineKeyboard = new InlineKeyboard()
+    .text('Keep', 'keep')
+    .text('Discard', 'discard');
 
-  let allElements = [...titles.map((t, i) => ({ type: "title", content: t, index: i })),
-                     ...paragraphs.map((p, i) => ({ type: "paragraph", content: p, index: i })),
-                     ...images.filter(image => selectedImages.includes(image.src))
-                              .map((image, i) => ({ type: "image", content: image.src, index: image.index }))];
+  ctx.replyWithPhoto(imageUrl, {
+    reply_markup: inlineKeyboard,
+  });
+}
+
+
+function generateHTML(titles: string[], paragraphs: string[], images: Array<{ index: number; src: string }>, selectedImages: Array<{ index: number; src: string }>): string {
+  const allElements = [
+    ...titles.map((t, i) => ({ type: "title", content: t, index: i })),
+    ...paragraphs.map((p, i) => ({ type: "paragraph", content: p, index: i })),
+    ...images.filter((image) =>
+      selectedImages.some((selectedImage) => selectedImage.src === image.src)
+    ).map((image) => ({ type: "image", content: image.src, index: image.index })),
+  ];
 
   allElements.sort((a, b) => a.index - b.index);
 
-  const contentHTML = allElements.map((element) => {
+  const contentHTML = allElements.map((element: { type: string; content: string; index: number }) => {
     if (element.type === "title") {
       return `<h2>${element.content}</h2>`;
     } else if (element.type === "paragraph") {
@@ -157,6 +165,7 @@ function generateHTML(titles: string[], paragraphs: string[], images: Array<{ in
 
 
 
+
   const errorHandler: Middleware<Context> = async (ctx, next) => {
     try {
       await next();
@@ -167,11 +176,14 @@ function generateHTML(titles: string[], paragraphs: string[], images: Array<{ in
 
   bot.use(errorHandler);
 
-  function isValidUrl(url: string): boolean {
-    try {
-      new URL(url);
+function isValidUrl(url: string): boolean {
+  try {
+    if (url.startsWith("data:image/")) {
       return true;
-    } catch {
-      return false;
     }
+    new URL(url);
+    return true;
+  } catch {
+    return false;
   }
+}

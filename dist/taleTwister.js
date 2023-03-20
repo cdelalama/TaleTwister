@@ -68,11 +68,13 @@ bot.on("message", async (ctx) => {
             $("p").each((_i, el) => {
                 paragraphs.push((0, html_entities_1.decode)($(el).text().trim()));
             });
-            // Replace the existing images extraction code with this
+            const baseUrl = response.request.res.responseUrl;
             const images = [];
             $("body *").each((_i, el) => {
                 if ($(el).is("img")) {
-                    images.push({ index: _i, src: $(el).attr("src") });
+                    const src = $(el).attr("src");
+                    const absoluteUrl = new url_1.URL(src, baseUrl).toString();
+                    images.push({ index: _i, src: absoluteUrl });
                 }
             });
             ctx.reply(`Page Title: ${pageTitle}\n\nTitles:\n${titles.join("\n")}\n\nParagraphs:\n${paragraphs.join("\n")}`);
@@ -115,8 +117,10 @@ bot.on('callback_query', async (ctx) => {
 });
 function sendImage(ctx, index) {
     const userState = userStates.get(ctx.from.id);
-    const imageUrl = userState.images[index];
+    const imageUrl = userState.images[index].src;
+    console.log("Image URL:", imageUrl); // Add this line to log the image URL
     if (!isValidUrl(imageUrl)) {
+        console.log("Invalid image URL:", imageUrl); // Add this line to log the invalid image URL
         ctx.reply("The image URL is invalid. Skipping this image...");
         if (userState.currentImage < userState.images.length - 1) {
             userState.currentImage += 1;
@@ -132,12 +136,11 @@ function sendImage(ctx, index) {
     });
 }
 function generateHTML(titles, paragraphs, images, selectedImages) {
-    const titleHTML = titles.map((title) => `<h2>${title}</h2>`).join("\n");
-    const paragraphHTML = paragraphs.map((paragraph) => `<p>${paragraph}</p>`).join("\n");
-    let allElements = [...titles.map((t, i) => ({ type: "title", content: t, index: i })),
+    const allElements = [
+        ...titles.map((t, i) => ({ type: "title", content: t, index: i })),
         ...paragraphs.map((p, i) => ({ type: "paragraph", content: p, index: i })),
-        ...images.filter(image => selectedImages.includes(image.src))
-            .map((image, i) => ({ type: "image", content: image.src, index: image.index }))];
+        ...images.filter((image) => selectedImages.some((selectedImage) => selectedImage.src === image.src)).map((image) => ({ type: "image", content: image.src, index: image.index })),
+    ];
     allElements.sort((a, b) => a.index - b.index);
     const contentHTML = allElements.map((element) => {
         if (element.type === "title") {
@@ -163,6 +166,9 @@ const errorHandler = async (ctx, next) => {
 bot.use(errorHandler);
 function isValidUrl(url) {
     try {
+        if (url.startsWith("data:image/")) {
+            return true;
+        }
         new url_1.URL(url);
         return true;
     }

@@ -6,7 +6,6 @@ import { decode } from 'html-entities';
 import { URL } from 'url';
 
 dotenv.config();
-const contentStructure: any[] = [];
 
 
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN!);
@@ -36,14 +35,13 @@ bot.on("message", async (ctx) => {
   console.log('Received update:', JSON.stringify(ctx.update, null, 2));
   if (url && url[0]) {
     try {
-    console.log('Fetching URL:', url[0]);
-      const response = await axios.get(url[0]); 
+      console.log('Fetching URL:', url[0]);
+      const response = await axios.get(url[0]);
       const $ = cheerio.load(response.data);
       const pageTitle = $("head > title").text().trim();
 
       const titles: string[] = [];
       const paragraphs: string[] = [];
-      const images: string[] = [];
 
       $("h1, h2, h3, h4, h5, h6").each((_i, el) => {
         titles.push(decode($(el).text().trim()));
@@ -53,8 +51,13 @@ bot.on("message", async (ctx) => {
         paragraphs.push(decode($(el).text().trim()));
       });
 
-      $("img").each((_i, el) => {
-        images.push($(el).attr("src")!);
+      // Replace the existing images extraction code with this
+      const images: Array<{ index: number; src: string }> = [];
+
+      $("body *").each((_i, el) => {
+        if ($(el).is("img")) {
+          images.push({ index: _i, src: $(el).attr("src")! });
+        }
       });
 
       ctx.reply(`Page Title: ${pageTitle}\n\nTitles:\n${titles.join("\n")}\n\nParagraphs:\n${paragraphs.join("\n")}`);
@@ -66,13 +69,14 @@ bot.on("message", async (ctx) => {
         sendImage(ctx, 0);
       }
     } catch (error) {
-        console.error('Error while processing the URL:', error);
+      console.error('Error while processing the URL:', error);
       ctx.reply("Error fetching the URL content. Please try again.");
     }
   } else {
     ctx.reply(`You said: ${ctx.message.text}`);
   }
 });
+
 
 bot.on('callback_query', async (ctx) => {
     const userId = ctx.from.id;
@@ -125,13 +129,30 @@ bot.on('callback_query', async (ctx) => {
     });
   }
 
-function generateHTML(titles: string[], paragraphs: string[], images: string[], selectedImages: string[]): string {
+function generateHTML(titles: string[], paragraphs: string[], images: Array<{ index: number; src: string }>, selectedImages: string[]): string {
   const titleHTML = titles.map((title) => `<h2>${title}</h2>`).join("\n");
   const paragraphHTML = paragraphs.map((paragraph) => `<p>${paragraph}</p>`).join("\n");
-  const imageHTML = images.map((src) => selectedImages.includes(src) ? `<img src="${src}" alt="" />` : '').join("\n");
 
-  return `<html>\n<head>\n<meta charset="utf-8">\n</head>\n<body>\n${titleHTML}\n${paragraphHTML}\n${imageHTML}\n</body>\n</html>`;
+  let allElements = [...titles.map((t, i) => ({ type: "title", content: t, index: i })),
+                     ...paragraphs.map((p, i) => ({ type: "paragraph", content: p, index: i })),
+                     ...images.filter(image => selectedImages.includes(image.src))
+                              .map((image, i) => ({ type: "image", content: image.src, index: image.index }))];
+
+  allElements.sort((a, b) => a.index - b.index);
+
+  const contentHTML = allElements.map((element) => {
+    if (element.type === "title") {
+      return `<h2>${element.content}</h2>`;
+    } else if (element.type === "paragraph") {
+      return `<p>${element.content}</p>`;
+    } else if (element.type === "image") {
+      return `<img src="${element.content}" alt="" />`;
+    }
+  }).join("\n");
+
+  return `<html>\n<head>\n<meta charset="utf-8">\n</head>\n<body>\n${contentHTML}\n</body>\n</html>`;
 }
+
 
 
 

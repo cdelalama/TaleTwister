@@ -33,7 +33,6 @@ const cheerio_1 = __importDefault(require("cheerio"));
 const html_entities_1 = require("html-entities");
 const url_1 = require("url");
 dotenv.config();
-const contentStructure = [];
 const bot = new grammy_1.Bot(process.env.TELEGRAM_BOT_TOKEN);
 console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN);
 bot.api.getMe().then((botInfo) => {
@@ -63,15 +62,18 @@ bot.on("message", async (ctx) => {
             const pageTitle = $("head > title").text().trim();
             const titles = [];
             const paragraphs = [];
-            const images = [];
             $("h1, h2, h3, h4, h5, h6").each((_i, el) => {
                 titles.push((0, html_entities_1.decode)($(el).text().trim()));
             });
             $("p").each((_i, el) => {
                 paragraphs.push((0, html_entities_1.decode)($(el).text().trim()));
             });
-            $("img").each((_i, el) => {
-                images.push($(el).attr("src"));
+            // Replace the existing images extraction code with this
+            const images = [];
+            $("body *").each((_i, el) => {
+                if ($(el).is("img")) {
+                    images.push({ index: _i, src: $(el).attr("src") });
+                }
             });
             ctx.reply(`Page Title: ${pageTitle}\n\nTitles:\n${titles.join("\n")}\n\nParagraphs:\n${paragraphs.join("\n")}`);
             userStates.set(ctx.from.id, { titles, paragraphs, images, selectedImages: [], currentImage: 0 });
@@ -132,8 +134,23 @@ function sendImage(ctx, index) {
 function generateHTML(titles, paragraphs, images, selectedImages) {
     const titleHTML = titles.map((title) => `<h2>${title}</h2>`).join("\n");
     const paragraphHTML = paragraphs.map((paragraph) => `<p>${paragraph}</p>`).join("\n");
-    const imageHTML = images.map((src) => selectedImages.includes(src) ? `<img src="${src}" alt="" />` : '').join("\n");
-    return `<html>\n<head>\n<meta charset="utf-8">\n</head>\n<body>\n${titleHTML}\n${paragraphHTML}\n${imageHTML}\n</body>\n</html>`;
+    let allElements = [...titles.map((t, i) => ({ type: "title", content: t, index: i })),
+        ...paragraphs.map((p, i) => ({ type: "paragraph", content: p, index: i })),
+        ...images.filter(image => selectedImages.includes(image.src))
+            .map((image, i) => ({ type: "image", content: image.src, index: image.index }))];
+    allElements.sort((a, b) => a.index - b.index);
+    const contentHTML = allElements.map((element) => {
+        if (element.type === "title") {
+            return `<h2>${element.content}</h2>`;
+        }
+        else if (element.type === "paragraph") {
+            return `<p>${element.content}</p>`;
+        }
+        else if (element.type === "image") {
+            return `<img src="${element.content}" alt="" />`;
+        }
+    }).join("\n");
+    return `<html>\n<head>\n<meta charset="utf-8">\n</head>\n<body>\n${contentHTML}\n</body>\n</html>`;
 }
 const errorHandler = async (ctx, next) => {
     try {

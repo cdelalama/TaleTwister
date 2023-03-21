@@ -35,9 +35,12 @@ const url_1 = require("url");
 dotenv.config();
 const bot = new grammy_1.Bot(process.env.TELEGRAM_BOT_TOKEN);
 console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN);
-bot.api.getMe().then((botInfo) => {
+bot.api
+    .getMe()
+    .then((botInfo) => {
     console.log("Bot info:", botInfo);
-}).catch((error) => {
+})
+    .catch((error) => {
     console.error("Failed to get bot info:", error);
 });
 bot.start({
@@ -46,17 +49,17 @@ bot.start({
 });
 const userStates = new Map();
 bot.command("start", (ctx) => {
-    console.log('Received update:', JSON.stringify(ctx.update, null, 2));
+    console.log("Received update:", JSON.stringify(ctx.update, null, 2));
     ctx.reply("Welcome to my web content extraction bot!");
 });
 bot.on("message", async (ctx) => {
     var _a;
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const url = ((_a = ctx.message.text) !== null && _a !== void 0 ? _a : "").match(urlRegex);
-    console.log('Received update:', JSON.stringify(ctx.update, null, 2));
+    console.log("Received update:", JSON.stringify(ctx.update, null, 2));
     if (url && url[0]) {
         try {
-            console.log('Fetching URL:', url[0]);
+            console.log("Fetching URL:", url[0]);
             const response = await axios_1.default.get(url[0]);
             const $ = cheerio_1.default.load(response.data);
             const pageTitle = $("head > title").text().trim();
@@ -78,14 +81,20 @@ bot.on("message", async (ctx) => {
                 }
             });
             ctx.reply(`Page Title: ${pageTitle}\n\nTitles:\n${titles.join("\n")}\n\nParagraphs:\n${paragraphs.join("\n")}`);
-            userStates.set(ctx.from.id, { titles, paragraphs, images, selectedImages: [], currentImage: 0 });
+            userStates.set(ctx.from.id, {
+                titles,
+                paragraphs,
+                images,
+                selectedImages: [],
+                currentImage: 0,
+            });
             // Send the first image
             if (images.length > 0) {
                 sendImage(ctx, 0);
             }
         }
         catch (error) {
-            console.error('Error while processing the URL:', error);
+            console.error("Error while processing the URL:", error);
             ctx.reply("Error fetching the URL content. Please try again.");
         }
     }
@@ -93,14 +102,14 @@ bot.on("message", async (ctx) => {
         ctx.reply(`You said: ${ctx.message.text}`);
     }
 });
-bot.on('callback_query', async (ctx) => {
+bot.on("callback_query", async (ctx) => {
     const userId = ctx.from.id;
     const userState = userStates.get(userId);
     const imageData = ctx.callbackQuery.data;
     if (!userState) {
         return;
     }
-    if (imageData === 'keep') {
+    if (imageData === "keep") {
         userState.selectedImages.push(userState.images[userState.currentImage]);
     }
     if (userState.currentImage < userState.images.length - 1) {
@@ -109,18 +118,22 @@ bot.on('callback_query', async (ctx) => {
     }
     else {
         const html = generateHTML(userState.titles, userState.paragraphs, userState.images, userState.selectedImages);
-        const htmlBuffer = Buffer.from(html, 'utf-8');
-        const inputFile = new grammy_1.InputFile(htmlBuffer, 'generated.html');
+        const htmlBuffer = Buffer.from(html, "utf-8");
+        const inputFile = new grammy_1.InputFile(htmlBuffer, "generated.html");
         ctx.replyWithDocument(inputFile);
         userStates.delete(userId);
     }
 });
 function sendImage(ctx, index) {
     const userState = userStates.get(ctx.from.id);
+    if (!userState) {
+        console.log("User state not found for user ID:", ctx.from.id);
+        return;
+    }
     const imageUrl = userState.images[index].src;
-    console.log("Image URL:", imageUrl); // Add this line to log the image URL
+    console.log("Image URL:", imageUrl);
     if (!isValidUrl(imageUrl)) {
-        console.log("Invalid image URL:", imageUrl); // Add this line to log the invalid image URL
+        console.log("Invalid image URL:", imageUrl);
         ctx.reply("The image URL is invalid. Skipping this image...");
         if (userState.currentImage < userState.images.length - 1) {
             userState.currentImage += 1;
@@ -129,8 +142,8 @@ function sendImage(ctx, index) {
         return;
     }
     const inlineKeyboard = new grammy_1.InlineKeyboard()
-        .text('Keep', 'keep')
-        .text('Discard', 'discard');
+        .text("Keep", "keep")
+        .text("Discard", "discard");
     ctx.replyWithPhoto(imageUrl, {
         reply_markup: inlineKeyboard,
     });
@@ -139,10 +152,17 @@ function generateHTML(titles, paragraphs, images, selectedImages) {
     const allElements = [
         ...titles.map((t, i) => ({ type: "title", content: t, index: i })),
         ...paragraphs.map((p, i) => ({ type: "paragraph", content: p, index: i })),
-        ...images.filter((image) => selectedImages.some((selectedImage) => selectedImage.src === image.src)).map((image) => ({ type: "image", content: image.src, index: image.index })),
+        ...images
+            .filter((image) => selectedImages.some((selectedImage) => selectedImage.src === image.src))
+            .map((image) => ({
+            type: "image",
+            content: image.src,
+            index: image.index,
+        })),
     ];
     allElements.sort((a, b) => a.index - b.index);
-    const contentHTML = allElements.map((element) => {
+    const contentHTML = allElements
+        .map((element) => {
         if (element.type === "title") {
             return `<h2>${element.content}</h2>`;
         }
@@ -152,7 +172,8 @@ function generateHTML(titles, paragraphs, images, selectedImages) {
         else if (element.type === "image") {
             return `<img src="${element.content}" alt="" />`;
         }
-    }).join("\n");
+    })
+        .join("\n");
     return `<html>\n<head>\n<meta charset="utf-8">\n</head>\n<body>\n${contentHTML}\n</body>\n</html>`;
 }
 const errorHandler = async (ctx, next) => {

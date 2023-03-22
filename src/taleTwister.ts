@@ -2,6 +2,7 @@ import { Bot, InlineKeyboard, Middleware, Context, InputFile } from "grammy";
 import * as dotenv from "dotenv";
 import axios from "axios";
 import cheerio from "cheerio";
+
 import { decode } from "html-entities";
 import { URL } from "url";
 
@@ -26,8 +27,8 @@ bot.start({
 const userStates = new Map<
 	number,
 	{
-		titles: string[];
-		paragraphs: string[];
+		titles: Array<{ content: string; index: number }>;
+		paragraphs: Array<{ content: string; index: number }>;
 		images: Array<{ index: number; src: string }>;
 		selectedImages: Array<{ index: number; src: string }>;
 		currentImage: number;
@@ -41,6 +42,8 @@ bot.command("start", (ctx) => {
 bot.on("message", async (ctx) => {
 	const urlRegex = /(https?:\/\/[^\s]+)/g;
 	const url = (ctx.message.text ?? "").match(urlRegex);
+	let elementIndex = 0;
+
 	console.log("Received update:", JSON.stringify(ctx.update, null, 2));
 	if (url && url[0]) {
 		try {
@@ -49,32 +52,47 @@ bot.on("message", async (ctx) => {
 			const $ = cheerio.load(response.data);
 			const pageTitle = $("head > title").text().trim();
 
-			const titles: string[] = [];
-			const paragraphs: string[] = [];
+			const titles: Array<{ content: string; index: number }> = [];
+			const paragraphs: Array<{ content: string; index: number }> = [];
 
 			$("h1, h2, h3, h4, h5, h6").each((_i, el) => {
-				titles.push(decode($(el).text().trim()));
+				titles.push({
+					content: decode($(el).text().trim()),
+					index: elementIndex,
+				});
+				elementIndex++;
 			});
 
 			$("p").each((_i, el) => {
-				paragraphs.push(decode($(el).text().trim()));
+				paragraphs.push({
+					content: decode($(el).text().trim()),
+					index: elementIndex,
+				});
+				elementIndex++;
 			});
 
-			const baseUrl = response.request.res.responseUrl;
 			const images: Array<{ index: number; src: string }> = [];
+
+			elementIndex = 0;
 
 			$("body *").each((_i, el) => {
 				if ($(el).is("img")) {
 					const src = $(el).attr("src")!;
-					const absoluteUrl = new URL(src, baseUrl).toString();
-					images.push({ index: _i, src: absoluteUrl });
+					const absoluteUrl = new URL(
+						src,
+						response.request.responseURL
+					).toString();
+					images.push({ index: elementIndex, src: absoluteUrl });
+					elementIndex++;
 				}
 			});
 
 			ctx.reply(
-				`Page Title: ${pageTitle}\n\nTitles:\n${titles.join(
-					"\n"
-				)}\n\nParagraphs:\n${paragraphs.join("\n")}`
+				`Page Title: ${pageTitle}\n\nTitles:\n${titles
+					.map((t) => t.content)
+					.join("\n")}\n\nParagraphs:\n${paragraphs
+					.map((p) => p.content)
+					.join("\n")}`
 			);
 
 			userStates.set(ctx.from.id, {
@@ -161,14 +179,22 @@ function sendImage(ctx: any, index: number) {
 }
 
 function generateHTML(
-	titles: string[],
-	paragraphs: string[],
+	titles: Array<{ content: string; index: number }>,
+	paragraphs: Array<{ content: string; index: number }>,
 	images: Array<{ index: number; src: string }>,
 	selectedImages: Array<{ index: number; src: string }>
 ): string {
 	const allElements = [
-		...titles.map((t, i) => ({ type: "title", content: t, index: i })),
-		...paragraphs.map((p, i) => ({ type: "paragraph", content: p, index: i })),
+		...titles.map((t) => ({
+			type: "title",
+			content: t.content,
+			index: t.index,
+		})),
+		...paragraphs.map((p) => ({
+			type: "paragraph",
+			content: p.content,
+			index: p.index,
+		})),
 		...images
 			.filter((image) =>
 				selectedImages.some((selectedImage) => selectedImage.src === image.src)
@@ -180,9 +206,9 @@ function generateHTML(
 			})),
 	];
 
-	allElements.sort((a, b) => a.index - b.index);
+	const sortedElements = allElements.sort((a, b) => a.index - b.index);
 
-	const contentHTML = allElements
+	const contentHTML = sortedElements
 		.map((element: { type: string; content: string; index: number }) => {
 			if (element.type === "title") {
 				return `<h2>${element.content}</h2>`;

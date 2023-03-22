@@ -56,6 +56,7 @@ bot.on("message", async (ctx) => {
     var _a;
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const url = ((_a = ctx.message.text) !== null && _a !== void 0 ? _a : "").match(urlRegex);
+    let elementIndex = 0;
     console.log("Received update:", JSON.stringify(ctx.update, null, 2));
     if (url && url[0]) {
         try {
@@ -66,21 +67,34 @@ bot.on("message", async (ctx) => {
             const titles = [];
             const paragraphs = [];
             $("h1, h2, h3, h4, h5, h6").each((_i, el) => {
-                titles.push((0, html_entities_1.decode)($(el).text().trim()));
+                titles.push({
+                    content: (0, html_entities_1.decode)($(el).text().trim()),
+                    index: elementIndex,
+                });
+                elementIndex++;
             });
             $("p").each((_i, el) => {
-                paragraphs.push((0, html_entities_1.decode)($(el).text().trim()));
+                paragraphs.push({
+                    content: (0, html_entities_1.decode)($(el).text().trim()),
+                    index: elementIndex,
+                });
+                elementIndex++;
             });
-            const baseUrl = response.request.res.responseUrl;
             const images = [];
+            elementIndex = 0;
             $("body *").each((_i, el) => {
                 if ($(el).is("img")) {
                     const src = $(el).attr("src");
-                    const absoluteUrl = new url_1.URL(src, baseUrl).toString();
-                    images.push({ index: _i, src: absoluteUrl });
+                    const absoluteUrl = new url_1.URL(src, response.request.responseURL).toString();
+                    images.push({ index: elementIndex, src: absoluteUrl });
+                    elementIndex++;
                 }
             });
-            ctx.reply(`Page Title: ${pageTitle}\n\nTitles:\n${titles.join("\n")}\n\nParagraphs:\n${paragraphs.join("\n")}`);
+            ctx.reply(`Page Title: ${pageTitle}\n\nTitles:\n${titles
+                .map((t) => t.content)
+                .join("\n")}\n\nParagraphs:\n${paragraphs
+                .map((p) => p.content)
+                .join("\n")}`);
             userStates.set(ctx.from.id, {
                 titles,
                 paragraphs,
@@ -150,8 +164,16 @@ function sendImage(ctx, index) {
 }
 function generateHTML(titles, paragraphs, images, selectedImages) {
     const allElements = [
-        ...titles.map((t, i) => ({ type: "title", content: t, index: i })),
-        ...paragraphs.map((p, i) => ({ type: "paragraph", content: p, index: i })),
+        ...titles.map((t) => ({
+            type: "title",
+            content: t.content,
+            index: t.index,
+        })),
+        ...paragraphs.map((p) => ({
+            type: "paragraph",
+            content: p.content,
+            index: p.index,
+        })),
         ...images
             .filter((image) => selectedImages.some((selectedImage) => selectedImage.src === image.src))
             .map((image) => ({
@@ -160,8 +182,8 @@ function generateHTML(titles, paragraphs, images, selectedImages) {
             index: image.index,
         })),
     ];
-    allElements.sort((a, b) => a.index - b.index);
-    const contentHTML = allElements
+    const sortedElements = allElements.sort((a, b) => a.index - b.index);
+    const contentHTML = sortedElements
         .map((element) => {
         if (element.type === "title") {
             return `<h2>${element.content}</h2>`;

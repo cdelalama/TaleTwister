@@ -83,12 +83,28 @@ bot.on("message", async (ctx) => {
             const images = [];
             elementIndex = 0;
             $("body *").each((_i, el) => {
-                if ($(el).is("img")) {
+                if ($(el).is("h1, h2, h3, h4, h5, h6")) {
+                    titles.push({
+                        content: (0, html_entities_1.decode)($(el).text().trim()),
+                        index: elementIndex,
+                    });
+                }
+                else if ($(el).is("p")) {
+                    paragraphs.push({
+                        content: (0, html_entities_1.decode)($(el).text().trim()),
+                        index: elementIndex,
+                    });
+                }
+                else if ($(el).is("img")) {
                     const src = $(el).attr("src");
                     const absoluteUrl = new url_1.URL(src, response.request.responseURL).toString();
                     images.push({ index: elementIndex, src: absoluteUrl });
-                    elementIndex++;
                 }
+                else {
+                    // Skip non-matching elements
+                    return;
+                }
+                elementIndex++;
             });
             ctx.reply(`Page Title: ${pageTitle}\n\nTitles:\n${titles
                 .map((t) => t.content)

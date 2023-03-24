@@ -106,11 +106,10 @@ bot.on("message", async (ctx) => {
                 }
                 elementIndex++;
             });
-            ctx.reply(`Page Title: ${pageTitle}\n\nTitles:\n${titles
+            await sendMessageInChunks(ctx, `Page Title: ${pageTitle}\n\nTitles:\n${titles
                 .map((t) => t.content)
-                .join("\n")}\n\nParagraphs:\n${paragraphs
-                .map((p) => p.content)
                 .join("\n")}`);
+            await sendMessageInChunks(ctx, `Paragraphs:\n${paragraphs.map((p) => p.content).join("\n")}`);
             userStates.set(ctx.from.id, {
                 titles,
                 paragraphs,
@@ -233,5 +232,21 @@ function isValidUrl(url) {
     }
     catch {
         return false;
+    }
+}
+async function sendMessageInChunks(ctx, text) {
+    const maxMessageLength = 4096;
+    let startIndex = 0;
+    let endIndex = maxMessageLength;
+    while (startIndex < text.length) {
+        if (endIndex < text.length) {
+            endIndex = text.lastIndexOf("\n", endIndex);
+        }
+        else {
+            endIndex = text.length;
+        }
+        await ctx.reply(text.slice(startIndex, endIndex));
+        startIndex = endIndex + 1;
+        endIndex = startIndex + maxMessageLength;
     }
 }

@@ -66,22 +66,7 @@ bot.on("message", async (ctx) => {
             const pageTitle = $("head > title").text().trim();
             const titles = [];
             const paragraphs = [];
-            $("h1, h2, h3, h4, h5, h6").each((_i, el) => {
-                titles.push({
-                    content: (0, html_entities_1.decode)($(el).text().trim()),
-                    index: elementIndex,
-                });
-                elementIndex++;
-            });
-            $("p").each((_i, el) => {
-                paragraphs.push({
-                    content: (0, html_entities_1.decode)($(el).text().trim()),
-                    index: elementIndex,
-                });
-                elementIndex++;
-            });
             const images = [];
-            elementIndex = 0;
             $("body *").each((_i, el) => {
                 if ($(el).is("h1, h2, h3, h4, h5, h6")) {
                     titles.push({

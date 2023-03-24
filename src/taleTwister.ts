@@ -40,97 +40,74 @@ bot.command("start", (ctx) => {
 	ctx.reply("Welcome to my web content extraction bot!");
 });
 bot.on("message", async (ctx) => {
-	const urlRegex = /(https?:\/\/[^\s]+)/g;
-	const url = (ctx.message.text ?? "").match(urlRegex);
-	let elementIndex = 0;
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const url = (ctx.message.text ?? "").match(urlRegex);
+  let elementIndex = 0;
 
-	console.log("Received update:", JSON.stringify(ctx.update, null, 2));
-	if (url && url[0]) {
-		try {
-			console.log("Fetching URL:", url[0]);
-			const response = await axios.get(url[0]);
-			const $ = cheerio.load(response.data);
-			const pageTitle = $("head > title").text().trim();
+  console.log("Received update:", JSON.stringify(ctx.update, null, 2));
+  if (url && url[0]) {
+    try {
+      console.log("Fetching URL:", url[0]);
+      const response = await axios.get(url[0]);
+      const $ = cheerio.load(response.data);
+      const pageTitle = $("head > title").text().trim();
 
-			const titles: Array<{ content: string; index: number }> = [];
-			const paragraphs: Array<{ content: string; index: number }> = [];
+      const titles: Array<{ content: string; index: number }> = [];
+      const paragraphs: Array<{ content: string; index: number }> = [];
+      const images: Array<{ index: number; src: string }> = [];
 
-			$("h1, h2, h3, h4, h5, h6").each((_i, el) => {
-				titles.push({
-					content: decode($(el).text().trim()),
-					index: elementIndex,
-				});
-				elementIndex++;
-			});
+      $("body *").each((_i, el) => {
+        if ($(el).is("h1, h2, h3, h4, h5, h6")) {
+          titles.push({
+            content: decode($(el).text().trim()),
+            index: elementIndex,
+          });
+        } else if ($(el).is("p")) {
+          paragraphs.push({
+            content: decode($(el).text().trim()),
+            index: elementIndex,
+          });
+        } else if ($(el).is("img")) {
+          const src = $(el).attr("src")!;
+          const absoluteUrl = new URL(src, response.request.responseURL).toString();
+          images.push({ index: elementIndex, src: absoluteUrl });
+        } else {
+          // Skip non-matching elements
+          return;
+        }
+        elementIndex++;
+      });
 
-			$("p").each((_i, el) => {
-				paragraphs.push({
-					content: decode($(el).text().trim()),
-					index: elementIndex,
-				});
-				elementIndex++;
-			});
+      await sendMessageInChunks(
+        ctx,
+        `Page Title: ${pageTitle}\n\nTitles:\n${titles
+          .map((t) => t.content)
+          .join("\n")}`
+      );
+      await sendMessageInChunks(
+        ctx,
+        `Paragraphs:\n${paragraphs.map((p) => p.content).join("\n")}`
+      );
 
-			const images: Array<{ index: number; src: string }> = [];
+      userStates.set(ctx.from.id, {
+        titles,
+        paragraphs,
+        images,
+        selectedImages: [],
+        currentImage: 0,
+      });
 
-			elementIndex = 0;
-
-			$("body *").each((_i, el) => {
-				if ($(el).is("h1, h2, h3, h4, h5, h6")) {
-					titles.push({
-						content: decode($(el).text().trim()),
-						index: elementIndex,
-					});
-				} else if ($(el).is("p")) {
-					paragraphs.push({
-						content: decode($(el).text().trim()),
-						index: elementIndex,
-					});
-				} else if ($(el).is("img")) {
-					const src = $(el).attr("src")!;
-					const absoluteUrl = new URL(
-						src,
-						response.request.responseURL
-					).toString();
-					images.push({ index: elementIndex, src: absoluteUrl });
-				} else {
-					// Skip non-matching elements
-					return;
-				}
-
-				elementIndex++;
-			});
-
-			await sendMessageInChunks(
-				ctx,
-				`Page Title: ${pageTitle}\n\nTitles:\n${titles
-					.map((t) => t.content)
-					.join("\n")}`
-			);
-			await sendMessageInChunks(
-				ctx,
-				`Paragraphs:\n${paragraphs.map((p) => p.content).join("\n")}`
-			);
-
-			userStates.set(ctx.from.id, {
-				titles,
-				paragraphs,
-				images,
-				selectedImages: [],
-				currentImage: 0,
-			});
-
-			// Send the first image
-			if (images.length > 0) {
-				sendImage(ctx, 0);
-			}
-		} catch (error) {
-			console.error("Error while processing the URL:", error);
-			ctx.reply("Error fetching the URL content. Please try again.");
-		}
-	} else {
-		ctx.reply(`You said: ${ctx.message.text}`);
-	}
+      // Send the first image
+      if (images.length > 0) {
+        sendImage(ctx, 0);
+      }
+    } catch (error) {
+      console.error("Error while processing the URL:", error);
+      ctx.reply("Error fetching the URL content. Please try again.");
+    }
+  } else {
+    ctx.reply(`You said: ${ctx.message.text}`);
+  }
 });
 
 bot.on("callback_query", async (ctx) => {

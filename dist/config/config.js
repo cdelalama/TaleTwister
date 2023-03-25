@@ -23,26 +23,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const grammy_1 = require("grammy");
+exports.TELEGRAM_BOT_TOKEN = void 0;
 const dotenv = __importStar(require("dotenv"));
-const handlers_1 = require("./handlers");
-const errorHandler_1 = require("./middleware/errorHandler");
 dotenv.config();
-const bot = new grammy_1.Bot(process.env.TELEGRAM_BOT_TOKEN);
-console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN);
-bot.api
-    .getMe()
-    .then((botInfo) => {
-    console.log("Bot info:", botInfo);
-})
-    .catch((error) => {
-    console.error("Failed to get bot info:", error);
-});
-bot.start({
-    allowed_updates: ["message", "callback_query"],
-    timeout: 30,
-});
-bot.command("start", handlers_1.onStart);
-bot.on("message", handlers_1.onMessage);
-bot.use(errorHandler_1.errorHandler);
-bot.start();
+exports.TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;

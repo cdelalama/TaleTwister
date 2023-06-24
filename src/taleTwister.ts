@@ -1,4 +1,4 @@
-import { Bot, InlineKeyboard, Middleware, Context, InputFile } from "grammy";
+import { Bot, InlineKeyboard, Middleware, Context, InputFile } from './imports';
 import * as dotenv from "dotenv";
 import axios from "axios";
 import cheerio from "cheerio";
@@ -9,15 +9,6 @@ import { URL } from "url";
 dotenv.config();
 
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN!);
-console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN);
-bot.api
-	.getMe()
-	.then((botInfo) => {
-		console.log("Bot info:", botInfo);
-	})
-	.catch((error) => {
-		console.error("Failed to get bot info:", error);
-	});
 
 bot.start({
 	allowed_updates: ["message", "callback_query"],

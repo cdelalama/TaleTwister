@@ -33,7 +33,8 @@ const cheerio_1 = __importDefault(require("cheerio"));
 const html_entities_1 = require("html-entities");
 const url_1 = require("url");
 dotenv.config();
-const bot = new imports_1.Bot(process.env.TELEGRAM_BOT_TOKEN);
+const bot = new imports_1.Bot(TELEGRAM_BOT_TOKEN);
+//const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN!);
 bot.start({
     allowed_updates: ["message", "callback_query"],
     timeout: 30,

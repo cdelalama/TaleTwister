@@ -6,9 +6,18 @@ import cheerio from "cheerio";
 import { decode } from "html-entities";
 import { URL } from "url";
 
-dotenv.config();
 
-const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN!);
+import {
+	Composer,
+	session,
+	MyContext,
+	SessionData,
+
+  } from './imports';
+dotenv.config();
+const bot = new Bot<MyContext>(TELEGRAM_BOT_TOKEN);
+
+//const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN!);
 
 bot.start({
 	allowed_updates: ["message", "callback_query"],

@@ -1,7 +1,7 @@
-import { CustomContext } from "../types/customContext";
+import { MyContext } from "../types/types";
 import { InlineKeyboard } from "grammy";
 
-export async function sendImage(ctx: CustomContext, index: number) {
+export async function sendImage(ctx: MyContext, index: number) {
   const userState = ctx.userStates.get(ctx.from.id);
 
   if (!userState) {
@@ -43,7 +43,7 @@ function isValidUrl(url: string): boolean {
   }
 }
 
-export async function handleCallbackQuery(ctx: CustomContext) {
+export async function handleCallbackQuery(ctx: MyContext) {
   const userId = ctx.from.id;
   const userState = ctx.userStates.get(userId);
   const imageData = ctx.callbackQuery.data;

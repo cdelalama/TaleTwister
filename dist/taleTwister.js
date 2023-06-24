@@ -26,23 +26,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const grammy_1 = require("grammy");
+const imports_1 = require("./imports");
 const dotenv = __importStar(require("dotenv"));
 const axios_1 = __importDefault(require("axios"));
 const cheerio_1 = __importDefault(require("cheerio"));
 const html_entities_1 = require("html-entities");
 const url_1 = require("url");
 dotenv.config();
-const bot = new grammy_1.Bot(process.env.TELEGRAM_BOT_TOKEN);
-console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN);
-bot.api
-    .getMe()
-    .then((botInfo) => {
-    console.log("Bot info:", botInfo);
-})
-    .catch((error) => {
-    console.error("Failed to get bot info:", error);
-});
+const bot = new imports_1.Bot(process.env.TELEGRAM_BOT_TOKEN);
 bot.start({
     allowed_updates: ["message", "callback_query"],
     timeout: 30,
@@ -133,7 +124,7 @@ bot.on("callback_query", async (ctx) => {
     else {
         const html = generateHTML(userState.titles, userState.paragraphs, userState.images, userState.selectedImages);
         const htmlBuffer = Buffer.from(html, "utf-8");
-        const inputFile = new grammy_1.InputFile(htmlBuffer, "generated.html");
+        const inputFile = new imports_1.InputFile(htmlBuffer, "generated.html");
         ctx.replyWithDocument(inputFile);
         userStates.delete(userId);
     }
@@ -155,7 +146,7 @@ function sendImage(ctx, index) {
         }
         return;
     }
-    const inlineKeyboard = new grammy_1.InlineKeyboard()
+    const inlineKeyboard = new imports_1.InlineKeyboard()
         .text("Keep", "keep")
         .text("Discard", "discard");
     ctx.replyWithPhoto(imageUrl, {
